@@ -1,0 +1,52 @@
+---
+- name: configuracao inicial workers
+  hosts: new_workers
+  become: yes
+  tasks:
+    - name: insert lines inotify
+      lineinfile:
+        path: /etc/sysctl.conf
+        create: yes
+        line: "{{ item }}"
+      loop:
+        - fs.inotify.max_user_watches={{ inotity_max_user_watches }}
+        - fs.inotify.max_user_instances={{ inotify_max_user_instances }}
+
+    - name: configure sudo sem senha
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        line: '%sudo ALL=(ALL)        NOPASSWD: ALL'
+
+    - name: update sources.list
+      template:
+        src: ansible_artifacts/templates/sources.list.j2
+        dest: /etc/apt/sources.list
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Upgrade the OS (apt-get dist-upgrade)
+      apt:
+        upgrade: full
+        update_cache: yes
+
+    - name: install nfs-common and sshpass
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - nfs-common
+        - sshpass
+
+    - name: remove localtime
+      file:
+        path: /etc/localtime
+        state: absent
+    - name: create link localtime
+      file:
+        src: /usr/share/zoneinfo/America/Sao_Paulo
+        dest: /etc/localtime
+        owner: root
+        group: root
+        state: link

@@ -1,0 +1,32 @@
+image:
+  name: python:3.9.10
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+variables:
+  CLUSTER_NAME: internal_cluster
+  ANSIBLE_FORCE_COLOR: 'true'
+  ANSIBLE_BECOME_PASSWORD: ${ANSIBLE_BECOME_PASSWORD}
+  KUBERNETES_VERSION: ${KUBERNETES_VERSION}
+
+
+before_script:
+  - echo $INTERNO_DEV_SSH_KEY | base64 -di > ssh.pem
+  - chmod 400 ssh.pem
+  - pip3 install -r requirements.txt
+
+stages:
+  - cluster
+
+config_cluster:
+  stage: cluster
+  script:
+    - ANSIBLE_CONFIG=ansible.cfg ansible-playbook --private-key=ssh.pem -i inventory/$CLUSTER_NAME/hosts.ini cluster.yml -e ansible_become_password=${ANSIBLE_BECOME_PASSWORD} -e kube_version=${KUBERNETES_VERSION} -b
+  when: manual
+
+update_cluster:
+  stage: cluster
+  script:
+    - ANSIBLE_CONFIG=ansible.cfg ansible-playbook --private-key=ssh.pem -i inventory/$CLUSTER_NAME/hosts.ini upgrade-cluster.yml -e ansible_become_password=${ANSIBLE_BECOME_PASSWORD} -e kube_version=${KUBERNETES_VERSION} -b
+  when: manual
